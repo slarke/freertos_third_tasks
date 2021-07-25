@@ -133,12 +133,8 @@ int main(void)
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
-  xTaskCreate( vTask1, "Task 1", 1000, NULL, 2, NULL );
-  /* Создать Задачу 2 с приоритетом = 1, меньшим,
-  чем у Задачи 1. Передача параметра не используется.
-  Получить дескриптор создаваемой задачи в переменную
-  xTask2Handle */
-  xTaskCreate( vTask2, "Task 2", 1000, NULL, 1, &xTask2Handle );
+  xTaskCreate( vTask1, "Task 1", 1000, NULL, 1, NULL );
+
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -374,29 +370,23 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-/* Функция Задачи 1 */
 void vTask1( void *pvParameters )
 {
-	unsigned portBASE_TYPE uxPriority;
-	/* Получить приоритет Задачи 1. Он равен 2 и не изменяется
-	на протяжении всего времени
-	работы учебной программы № 1 */
-	uxPriority = uxTaskPriorityGet( NULL );
-	for( ;; )
-	{
+	for( ;; ){
 		/* Сигнализировать о выполнении Задачи 1 */
 		printf("Task1 is running\n");
-		/* Сделать приоритет Задачи 2 на единицу больше
-		приоритета Задачи 1 (равным 3).
-		Получить доступ к Задаче 2 из тела Задачи 1 позволяет
-		дескриптор Задачи 2, который сохранен в глобальной
-		переменной xTask2Handle*/
-		printf("To raise the Task2 priority\n");
-		vTaskPrioritySet( xTask2Handle, ( uxPriority + 1 ) );
-		/* Теперь приоритет Задачи 2 выше. Задача 1
-		продолжит свое выполнениение лишь тогда,
-		когда приоритет Задачи 1 будет уменьшен. */
-		osDelay(1000);
+		/* Динамически (после старта планировщика) создать
+		Задачу 2 с приоритетом 2.
+		Она сразу же получит управление */
+		xTaskCreate( vTask2, "Task 2", 1000, NULL, 2, NULL );
+		/* Пока выполняется Задача 2 с более высоким
+		приоритетом, Задача 1 не получает процессорного
+		времени. Когда Задача 2 уничтожила сама себя,
+		управление снова получает Задача 1 и переходит
+		в блокированное состояние на 100 мс. Так что в системе
+		не остается задач, готовых к выполнению, и выполняется
+		задача Бездействие */
+		vTaskDelay(1000);
 	}
 	vTaskDelete( NULL );
 }
@@ -404,25 +394,15 @@ void vTask1( void *pvParameters )
 /* Функция Задачи 2 */
 void vTask2( void *pvParameters )
 {
-	unsigned portBASE_TYPE uxPriority;
-	/* Получить приоритет Задачи 2. Так как после старта
-	планировщика Задача 1 имеет более высокий приоритет,
-	то если Задача 2 получает управление, значит, ее приоритет
-	был повышен до 3 */
-	uxPriority = uxTaskPriorityGet( NULL );
-	for( ;; )
-	{
-		/* Сигнализировать о выполнении Задачи 2 */
-		printf("Task2 is running\n");
-		/* Задача 2 понижает свой приоритет на 2 единицы
-		(становится равен 1). Таким образом, он становится ниже
-		приоритета Задачи 1, и Задача 1 получает управление */
-		printf("To lower the Task2 priority\n");
-		vTaskPrioritySet( NULL, ( uxPriority - 2 ) );
-		osDelay(1000);
-	}
+	/* Задача 2 не делает ничего, кроме сигнализации о своем
+	выполнении, и сама себя уничтожает. Тело функции
+	не содержит бесконечного цикла, так как в нем нет
+	необходимости. Тело функции Задачи 2 выполнится 1 раз,
+	после чего задача будет уничтожена. */
+	printf("Task2 is running and about to delete itself\n");
 	vTaskDelete( NULL );
 }
+
 
 int _write(int file, char *ptr, int len)
 {
